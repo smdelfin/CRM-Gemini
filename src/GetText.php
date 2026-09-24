@@ -36,7 +36,7 @@ $aEventText = $event->getText();
   <div class="text-body-secondary small mb-3"><?= gettext('Event ID') ?>: <?= InputUtils::escapeHTML($aEventID) ?></div>
   
   <div class="lh-lg">
-    <?= $aEventText ?>
+    <?= ChurchCRM\Utils\InputUtils::sanitizeHTML($aEventText) ?>
   </div>
   
   <div class="mt-4">
