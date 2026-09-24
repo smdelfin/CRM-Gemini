@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 use ChurchCRM\Service\AppIntegrityService;
 use ChurchCRM\Service\LocaleService;
@@ -111,8 +111,8 @@ $app->group('/', function (RouteCollectorProxy $group): void {
         $dbServerPort = preg_replace('/[^0-9]/', '', $setupData['DB_SERVER_PORT']);
         $dbName      = sanitize_db_field($setupData['DB_NAME']);
         $dbUser      = sanitize_db_field($setupData['DB_USER']);
-        $dbPassword  = $setupData['DB_PASSWORD'];
-        $rootPath    = $setupData['ROOT_PATH'];
+        $dbPassword = addslashes($setupData['DB_PASSWORD']);
+        $rootPath = addslashes($setupData['ROOT_PATH']);
         $url         = $setupData['URL'];
 
         $template = file_get_contents($docRoot . '/Include/Config.php.example');
