@@ -1,7 +1,16 @@
-﻿FROM php:8.4-apache
+# Stage 1: Compile frontend assets
+FROM node:18-bullseye-slim AS frontend-builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci || npm install
+COPY . .
+RUN npx webpack --mode production
 
-# 1. Install required system dependencies (excluding bulky locales-all)
+# Stage 2: Runtime PHP 8.4 Apache + Embedded MariaDB
+FROM php:8.4-apache
+
 RUN apt-get update && apt-get install -y \
+    mariadb-server \
     libxml2-dev \
     gettext \
     locales \
@@ -17,30 +26,32 @@ RUN docker-php-ext-install -j$(nproc) xml exif pdo_mysql gettext iconv mysqli zi
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) gd
 
-# 2. Load Apache configuration and enable rewrite
 COPY ./apache/default.conf /etc/apache2/apache2.conf
 RUN a2enmod rewrite
 
-# 3. Configure DocumentRoot to serve directly from /var/www/html/src
 RUN sed -ri -e 's!/var/www/html!/var/www/html/src!g' /etc/apache2/sites-available/*.conf
 
-# 4. Pull Composer binary and configure root execution
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 ENV COMPOSER_ALLOW_SUPERUSER=1
 
-# 5. Copy full application source code
 WORKDIR /var/www/html
 COPY . /var/www/html/
+COPY --from=frontend-builder /app/src/skin/ /var/www/html/src/skin/
 
-# 6. Install PHP dependencies inside src/ if vendor is absent
 RUN if [ -f "src/composer.json" ] && [ ! -d "src/vendor" ]; then \
         composer install --working-dir=/var/www/html/src --no-dev --optimize-autoloader --no-interaction --ignore-platform-reqs; \
-    elif [ -f "composer.json" ] && [ ! -d "vendor" ]; then \
-        composer install --no-dev --optimize-autoloader --no-interaction --ignore-platform-reqs; \
     fi
 
-# 7. Grant ownership to Apache web server user
 RUN chown -R www-data:www-data /var/www/html
 
+# Startup script to initialize MariaDB service before Apache runs
+RUN { \
+        echo '#!/bin/bash'; \
+        echo 'service mariadb start'; \
+        echo 'mysql -e "CREATE DATABASE IF NOT EXISTS churchcrm; CREATE USER IF NOT EXISTS '\''churchcrm'\''@'\''localhost'\'' IDENTIFIED BY '\''churchcrm123'\''; GRANT ALL PRIVILEGES ON churchcrm.* TO '\''churchcrm'\''@'\''localhost'\''; FLUSH PRIVILEGES;"'; \
+        echo 'exec apache2-foreground'; \
+    } > /usr/local/bin/entrypoint.sh \
+    && chmod +x /usr/local/bin/entrypoint.sh
+
 EXPOSE 80
-CMD ["apache2-foreground"]
+CMD ["/usr/local/bin/entrypoint.sh"]
