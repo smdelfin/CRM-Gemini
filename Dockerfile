@@ -1,4 +1,4 @@
-# Stage 1: Compile frontend assets
+# Stage 1: Build Webpack frontend assets
 FROM node:18-bullseye-slim AS frontend-builder
 WORKDIR /app
 COPY package*.json ./
@@ -6,7 +6,7 @@ RUN npm ci || npm install
 COPY . .
 RUN npx webpack --mode production
 
-# Stage 2: Runtime PHP 8.4 Apache + Embedded MariaDB
+# Stage 2: PHP 8.4 Apache + Embedded MariaDB
 FROM php:8.4-apache
 
 RUN apt-get update && apt-get install -y \
@@ -44,13 +44,14 @@ RUN if [ -f "src/composer.json" ] && [ ! -d "src/vendor" ]; then \
 
 RUN chown -R www-data:www-data /var/www/html
 
-# Startup script to initialize MariaDB service before Apache runs
-RUN { \
-        echo '#!/bin/bash'; \
-        echo 'service mariadb start'; \
-        echo 'mysql -e "CREATE DATABASE IF NOT EXISTS churchcrm; CREATE USER IF NOT EXISTS '\''churchcrm'\''@'\''localhost'\'' IDENTIFIED BY '\''churchcrm123'\''; GRANT ALL PRIVILEGES ON churchcrm.* TO '\''churchcrm'\''@'\''localhost'\''; FLUSH PRIVILEGES;"'; \
-        echo 'exec apache2-foreground'; \
-    } > /usr/local/bin/entrypoint.sh \
+# Startup script: Start MariaDB, create database & user, seed Install.sql, then run Apache
+RUN echo '#!/bin/bash\n\
+service mariadb start\n\
+mysql -e "CREATE DATABASE IF NOT EXISTS churchcrm; CREATE USER IF NOT EXISTS '\''churchcrm'\''@'\''localhost'\'' IDENTIFIED BY '\''churchcrm123'\''; GRANT ALL PRIVILEGES ON churchcrm.* TO '\''churchcrm'\''@'\''localhost'\''; FLUSH PRIVILEGES;"\n\
+if [ -f "/var/www/html/src/mysql/install/Install.sql" ]; then\n\
+    mysql churchcrm < /var/www/html/src/mysql/install/Install.sql 2>/dev/null || true\n\
+fi\n\
+exec apache2-foreground' > /usr/local/bin/entrypoint.sh \
     && chmod +x /usr/local/bin/entrypoint.sh
 
 EXPOSE 80
