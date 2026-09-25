@@ -1,11 +1,10 @@
 ﻿FROM php:8.4-apache
 
-# 1. Install system dependencies and PHP extensions required by ChurchCRM
+# 1. Install required system dependencies (excluding bulky locales-all)
 RUN apt-get update && apt-get install -y \
     libxml2-dev \
     gettext \
     locales \
-    locales-all \
     libpng-dev \
     libzip-dev \
     libfreetype6-dev \
@@ -18,7 +17,7 @@ RUN docker-php-ext-install -j$(nproc) xml exif pdo_mysql gettext iconv mysqli zi
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) gd
 
-# 2. Load global Apache configuration and enable rewrite
+# 2. Load Apache configuration and enable rewrite
 COPY ./apache/default.conf /etc/apache2/apache2.conf
 RUN a2enmod rewrite
 
