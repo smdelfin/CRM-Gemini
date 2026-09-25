@@ -26,6 +26,12 @@ RUN docker-php-ext-install -j$(nproc) xml exif pdo_mysql gettext iconv mysqli zi
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) gd
 
+# Configure PHP to recognize MariaDB's socket location
+RUN { \
+        echo "mysqli.default_socket=/run/mysqld/mysqld.sock"; \
+        echo "pdo_mysql.default_socket=/run/mysqld/mysqld.sock"; \
+    } > /usr/local/etc/php/conf.d/docker-php-mysql-sockets.ini
+
 COPY ./apache/default.conf /etc/apache2/apache2.conf
 RUN a2enmod rewrite
 
@@ -44,10 +50,15 @@ RUN if [ -f "src/composer.json" ] && [ ! -d "src/vendor" ]; then \
 
 RUN chown -R www-data:www-data /var/www/html
 
-# Startup script: Start MariaDB, create database & user, seed Install.sql, then run Apache
+# Startup script: Start MariaDB, create database & user for both 127.0.0.1 and localhost, seed schema, then run Apache
 RUN echo '#!/bin/bash\n\
 service mariadb start\n\
-mysql -e "CREATE DATABASE IF NOT EXISTS churchcrm; CREATE USER IF NOT EXISTS '\''churchcrm'\''@'\''localhost'\'' IDENTIFIED BY '\''churchcrm123'\''; GRANT ALL PRIVILEGES ON churchcrm.* TO '\''churchcrm'\''@'\''localhost'\''; FLUSH PRIVILEGES;"\n\
+mysql -e "CREATE DATABASE IF NOT EXISTS churchcrm; \
+CREATE USER IF NOT EXISTS '\''churchcrm'\''@'\''%'\'' IDENTIFIED BY '\''churchcrm123'\''; \
+CREATE USER IF NOT EXISTS '\''churchcrm'\''@'\''localhost'\'' IDENTIFIED BY '\''churchcrm123'\''; \
+GRANT ALL PRIVILEGES ON churchcrm.* TO '\''churchcrm'\''@'\''%'\''; \
+GRANT ALL PRIVILEGES ON churchcrm.* TO '\''churchcrm'\''@'\''localhost'\''; \
+FLUSH PRIVILEGES;"\n\
 if [ -f "/var/www/html/src/mysql/install/Install.sql" ]; then\n\
     mysql churchcrm < /var/www/html/src/mysql/install/Install.sql 2>/dev/null || true\n\
 fi\n\

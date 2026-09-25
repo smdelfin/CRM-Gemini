@@ -1,5 +1,5 @@
 <?php
-$sSERVERNAME = 'localhost';
+$sSERVERNAME = '127.0.0.1';
 $dbPort      = '3306';
 $sUSER      = 'churchcrm';
 $sPASSWORD  = 'churchcrm123';
