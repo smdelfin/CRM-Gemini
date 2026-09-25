@@ -89,3 +89,9 @@ Follow us for release announcements, tips, and community highlights:
 Happy coding and community building! 🎉
 
 — The ChurchCRM Team
+
+## Live Cloud Deployment
+- **Platform:** IBM Cloud Code Engine (Direct Source-to-Container)
+- **Status:** Active / Operational
+- **Deployment URL:** 
+- **Source Branch:** smdelfin/CRM-Gemini:master
